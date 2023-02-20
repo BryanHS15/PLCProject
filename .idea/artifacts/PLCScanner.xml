@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="PLCScanner">
+    <output-path>$PROJECT_DIR$/out/artifacts/PLCScanner</output-path>
+    <root id="archive" name="PLCScanner.jar">
+      <element id="dir-copy" path="$PROJECT_DIR$/src" />
+    </root>
+  </artifact>
+</component>
