@@ -125,6 +125,10 @@ public class Scanner implements  IScanner {
                             return new Token(IToken.Kind.EOF, tokenStart, 0, inputChars, line, column);
                         }
                         case ' ', '\n', '\r', '\t', '\f' -> nextChar();
+                        case '_' -> {
+                            state = State.IN_IDENT;
+                            nextChar();
+                        }
                         case '+' -> {
                             nextChar();
                             return new Token(IToken.Kind.PLUS, tokenStart, 1, inputChars, line, column - 1);
