@@ -17,6 +17,4 @@ public class NumLitToken extends Token implements INumLitToken {
        }
        return Integer.parseInt(temp);
     }
-
-
 }
