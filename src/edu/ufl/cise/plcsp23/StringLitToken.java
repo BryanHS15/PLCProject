@@ -42,9 +42,6 @@ public class StringLitToken extends Token implements IStringLitToken{
                 ++i;
             }
         }
-
         return res;
     }
-
-
 }
