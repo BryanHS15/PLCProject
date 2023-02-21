@@ -32,7 +32,8 @@ public class Parser implements IParser  {
 
     }
 
-    private Expr expression() throws  PLCException{
+    private Expr expression() throws PLCException{
+
         if(tokenList.isEmpty()){
             throw new PLCException("Error in expression");
         }
@@ -45,22 +46,22 @@ public class Parser implements IParser  {
 
     }
 
-    private Expr equality() {
-        Expr expr = comparison();
 
-        while (match(IToken.Kind.EQ)) {
-            Token operator = previous();
-            Expr right = comparison();
-            expr = new BinaryExpr(expr, operator, right);
-        }
-
-        return expr;
-    }
 
     private boolean match(IToken.Kind... types) {
         for (IToken.Kind type : types) {
             if (check(type)) {
                 advance();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean matchHelper(IToken.Kind... types) {
+        for (IToken.Kind type : types) {
+            if (check(type)) {
                 return true;
             }
         }
@@ -101,16 +102,15 @@ public class Parser implements IParser  {
 
     // <conditional_expr>  ::= if <expr> ? <expr> ? <expr>
     private Expr conditional_expr() throws PLCException{
-        Expr left_expr = additive_expr();
-        IToken first_token = peek();
+       Expr expr = expression();
+       IToken first = previous();
+        consume(IToken.Kind.QUESTION);
+       Expr true_Expr = expression();
+       consume(IToken.Kind.QUESTION);
+       Expr false_Expr = expression();
+       Expr left_expr = new ConditionalExpr(first, expr, true_Expr, false_Expr);
 
-        while(match(IToken.Kind.OR, IToken.Kind.BITOR)) {
-            Token operator = previous();
-            Expr right_expr = power_expr();
-            left_expr = new BinaryExpr(first_token, left_expr, operator.getKind(), right_expr);
-        }
-        return left_expr;
-
+       return left_expr;
     }
 
     //<and_expr> ::=  <comparison_expr> ( ( & | && )  <comparison_expr>)*
@@ -143,7 +143,7 @@ public class Parser implements IParser  {
     }
 
     //<power_expr> ::=    <additive_expr> ** <power_expr> |  <additive_expr>
-    private Expr power_expr() {
+    private Expr power_expr() throws PLCException{
        Expr left_expr = additive_expr();
        IToken first_token = peek();
 
@@ -158,7 +158,7 @@ public class Parser implements IParser  {
 
 
     //<comparison_expr> ::=   <power_expr> ( (< | > | == | <= | >=) <power_expr>)*
-    private Expr comparison() {
+    private Expr comparison() throws PLCException{
         Expr left_expr = power_expr();
         Token first_token = peek();
 
@@ -173,7 +173,7 @@ public class Parser implements IParser  {
 
 
     //<additive_expr> ::=  <multiplicative_expr> ( ( + | - ) <multiplicative_expr> )*
-    private Expr additive_expr() {
+    private Expr additive_expr() throws PLCException{
         Expr left_expr = multiplicative_expr();
         Token first_token = peek();
 
@@ -188,7 +188,7 @@ public class Parser implements IParser  {
 
 
     //<multiplicative_expr> ::= <unary_expr> (( * | / | % ) <unary_expr>)*
-    private Expr multiplicative_expr() {
+    private Expr multiplicative_expr() throws PLCException{
         Expr left_expr = unary();
         Token first_token = peek();
         while (match(IToken.Kind.DIV, IToken.Kind.TIMES, IToken.Kind.MOD)) {
@@ -201,7 +201,7 @@ public class Parser implements IParser  {
     }
 
 //<unary_expr> ::= ( ! | - | sin | cos | atan) <unary_expr> |   <primary_expr>
-    private Expr unary() {
+    private Expr unary() throws PLCException {
         if (match(IToken.Kind.BANG, IToken.Kind.MINUS, IToken.Kind.RES_atan, IToken.Kind.RES_cos, IToken.Kind.RES_sin)) {
             Token first = peek();
             Token operator = previous();
@@ -212,27 +212,23 @@ public class Parser implements IParser  {
         return primary();
     }
 
-    //<primary_expr> ::=
-    //STRING_LIT |
-    //NUM_LIT |
-    //IDENT |
-    //( <expr> ) |
-    //Z |
-    //rand
-    private Expr primary() {
-        if (match(FALSE)) return new Expr.Literal(false);
-        if (match(TRUE)) return new Expr.Literal(true);
-        if (match(NIL)) return new Expr.Literal(null);
+    //<primary_expr> ::= STRING_LIT |NUM_LIT |IDENT |( <expr> ) |Z rand
+    private Expr primary() throws PLCException{
+        Token first_token = peek();
+        Expr left_expr = expression();
 
-        if (match(IToken.Kind.NUM_LIT, IToken.Kind.STRING_LIT)) {
-            return new Expr.Literal(previous().literal);
-        }
+        if (match(IToken.Kind.STRING_LIT)) return new StringLitExpr(first_token);
+        else if (match(IToken.Kind.NUM_LIT)) return new NumLitExpr(first_token);
+        else if (match(IToken.Kind.IDENT)) return new IdentExpr(first_token);
+        else  if (match(IToken.Kind.LPAREN)) {
 
-        if (match(IToken.Kind.LPAREN)) {
-            Expr expr = expression();
-            consume(IToken.Kind.RPAREN, "Expect ')' after expression.");
-            return new Expr.Grouping(expr);
+            consume(IToken.Kind.RPAREN);
+            return left_expr;
         }
+        else if(match(IToken.Kind.RES_Z)) return new ZExpr(first_token);
+        else if(match(IToken.Kind.RES_rand)) return new RandomExpr(first_token);
+        throw new PLCException("Error in Primary");
+
     }
 
 
