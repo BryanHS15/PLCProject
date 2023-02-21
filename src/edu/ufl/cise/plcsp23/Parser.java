@@ -14,7 +14,7 @@ public class Parser implements IParser  {
     public AST parse() throws  PLCException {
         Token t = (Token) scanner.next();
         Token current = t;
-        NumLitExpr n = new NumLitExpr(current);
-        return n;
+        NumLitExpr no = new NumLitExpr(current);
+        return no;
     }
 }
