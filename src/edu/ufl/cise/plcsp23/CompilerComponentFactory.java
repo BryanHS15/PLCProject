@@ -19,7 +19,6 @@ public class CompilerComponentFactory {
 	}
 
 	public static IParser makeAssignment2Parser(String input) {
-		//throws LexicalException {
 		//add code to create a scanner and parser and return the parser.
 		Scanner scanner = new Scanner(input);
 		Parser parser = new Parser(scanner);
