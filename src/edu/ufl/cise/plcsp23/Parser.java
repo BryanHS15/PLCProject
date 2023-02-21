@@ -30,10 +30,10 @@ public class Parser implements IParser  {
     private Expr equality() {
         Expr expr = comparison();
 
-        while (match(BANG_EQUAL, IToken.Kind.EQ)) {
+        while (match(IToken.Kind.EQ)) {
             Token operator = previous();
             Expr right = comparison();
-            expr = new Expr.Binary(expr, operator, right);
+            expr = new BinaryExpr(expr, operator, right);
         }
 
         return expr;
@@ -98,10 +98,10 @@ public class Parser implements IParser  {
         return expr;
     }
 
-    private Expr factor() {
+    private Expr multiplicative_expr() {
         Expr expr = unary();
-
-        while (match(IToken.Kind.DIV, IToken.Kind.TIMES)) {
+        Token left = peek();
+        while (match(IToken.Kind.DIV, IToken.Kind.TIMES, IToken.Kind.MOD)) {
             Token operator = previous();
             Expr right = unary();
             expr = new BinaryExpr(expr,operator, right);
