@@ -29,12 +29,14 @@ public class Parser implements IParser  {
 
     private Expr equality() {
         Expr expr = comparison();
-
+        int i = 0;
         while (match(IToken.Kind.EQ)) {
             Token operator = previous();
             Expr right = comparison();
-            expr = new BinaryExpr(expr, operator, right);
+            expr = new BinaryExpr(tokenList.get(i),expr, operator.getKind(), right);
+            ++i;
         }
+
 
         return expr;
     }
