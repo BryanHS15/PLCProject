@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Parser">
+    <output-path>$PROJECT_DIR$/out/artifacts/Parser</output-path>
+    <root id="archive" name="Parser.jar">
+      <element id="dir-copy" path="$PROJECT_DIR$/src/edu/ufl/cise/plcsp23" />
+    </root>
+  </artifact>
+</component>

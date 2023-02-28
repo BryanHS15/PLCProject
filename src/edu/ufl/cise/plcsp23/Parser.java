@@ -1,44 +1,66 @@
 package edu.ufl.cise.plcsp23;
 import edu.ufl.cise.plcsp23.ast.*;
 import edu.ufl.cise.plcsp23.ast.NumLitExpr;
+import edu.ufl.cise.plcsp23.IToken.Kind;
+import edu.ufl.cise.plcsp23.ast.BinaryExpr;
+import edu.ufl.cise.plcsp23.ast.UnaryExpr;
+import edu.ufl.cise.plcsp23.ast.StringLitExpr;
 
+import javax.management.relation.InvalidRoleInfoException;
+import javax.swing.plaf.synth.SynthButtonUI;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Parser implements IParser  {
-    public Scanner scanner;
+     Scanner scanner;
     private int currentIndex = 0;
-    public ArrayList<Token> tokenList;
+    private ArrayList<IToken> tokenList;
 
 
 
-   public Parser(Scanner input) throws LexicalException{
+   public Parser(Scanner input) throws LexicalException {
         this.scanner = input;
-        this.currentIndex = 0;
-        this.tokenList = new ArrayList<>();
-        getNextToken();
+        this.tokenList = new ArrayList<IToken>();
 
-    }
+        while(true){
+            try{
+                IToken token = scanner.next();
+                if(token.getKind() == IToken.Kind.EOF){
+                    this.tokenList.add(token);
+                    break;
+                }
+                    this.tokenList.add(token);
+            }
+            catch(LexicalException e){
+                throw new  LexicalException("error");
+            }
 
-    private void getNextToken() throws LexicalException{
-        Token token = (Token) scanner.next();
-        tokenList.add(token);
-
-    }
-
-
-    private Expr equality() {
-        Expr expr = comparison();
-        int i = 0;
-        while (match(IToken.Kind.EQ)) {
-            Token operator = previous();
-            Expr right = comparison();
-            expr = new BinaryExpr(tokenList.get(i),expr, operator.getKind(), right);
-            ++i;
         }
 
+    }
 
-        return expr;
+
+    private boolean isAtEnd() {
+
+        return peek().getKind() == IToken.Kind.EOF;
+    }
+
+    private Token peek() {
+        return (Token) tokenList.get(currentIndex);
+    }
+
+    private Token previous() {
+        return (Token) tokenList.get(currentIndex - 1);
+    }
+
+    private Token advance() {
+        if (!isAtEnd()) currentIndex++;
+        return previous();
+    }
+
+    private boolean check(IToken.Kind type) {
+        if (isAtEnd()) return false;
+        return peek().getKind() == type;
     }
 
     private boolean match(IToken.Kind... types) {
@@ -48,106 +70,172 @@ public class Parser implements IParser  {
                 return true;
             }
         }
-
         return false;
     }
 
-    private boolean check(IToken.Kind type) {
-        if (isAtEnd()) return false;
-        return peek().kind == type;
+
+    public AST parse() throws PLCException {
+        if(tokenList.size() == 1){
+            throw new SyntaxException("The Array is empty");
+        }
+        return expression();
     }
 
+    private Expr expression() throws PLCException{
 
-    private Token advance() {
-        if (!isAtEnd()) currentIndex++;
-        return previous();
-    }
-
-    private boolean isAtEnd() {
-        return peek().kind == IToken.Kind.EOF;
-    }
-
-    private Token peek() {
-        return tokenList.get(currentIndex);
-    }
-
-    private Token previous() {
-        return tokenList.get(currentIndex - 1);
-    }
-
-    private Expr comparison() {
-        Expr expr = term();
-
-        while (match(IToken.Kind.GT, IToken.Kind.GE, IToken.Kind.LT, IToken.Kind.LE)) {
-            Token operator = previous();
-            Expr right = term();
-            expr = new BinaryExpr(expr, operator.getKind(), right);
+        if(match(IToken.Kind.RES_if)){
+            return conditional_expr();
+        }
+        else {
+            return or_expr();
         }
 
-        return expr;
+    }
+
+    // <conditional_expr>  ::= if <expr> ? <expr> ? <expr>
+    private Expr conditional_expr() throws PLCException{
+       Expr expr = expression();
+       IToken first = previous();
+
+       if(!match(Kind.QUESTION)){
+           throw new SyntaxException("Conditional failed");
+       }
+
+       Expr true_Expr = expression();
+       if(!match(Kind.QUESTION)){
+           throw new SyntaxException("Conditional failed");
+       }
+
+       Expr false_Expr = expression();
+
+       Expr left_expr = new ConditionalExpr(first, expr, true_Expr, false_Expr);
+
+       return left_expr;
+    }
+
+    // <or_expr> ::=  <and_expr> (  ( | | || ) <and_expr>)*
+
+    private Expr or_expr() throws PLCException{
+        Expr left_expr = and_expr();
+        IToken first_token = peek();
+
+        while(match(IToken.Kind.OR, IToken.Kind.BITOR)) {
+            IToken operator = previous();
+            Expr right_expr = and_expr();
+            left_expr = new BinaryExpr(first_token, left_expr, operator.getKind(), right_expr);
+        }
+        return left_expr;
+
     }
 
 
-    private Expr term() {
-        Expr expr = factor();
+    //<and_expr> ::=  <comparison_expr> ( ( & | && )  <comparison_expr>)*
+    private Expr and_expr() throws PLCException{
+        Expr left_expr = comparison();
+        IToken first_token = peek();
+
+        while(match(IToken.Kind.AND, IToken.Kind.BITAND)) {
+            IToken operator = previous();
+            Expr right_expr = comparison();
+            left_expr = new BinaryExpr(first_token, left_expr, operator.getKind(), right_expr);
+        }
+        return left_expr;
+
+    }
+
+
+    //<comparison_expr> ::=   <power_expr> ( (< | > | == | <= | >=) <power_expr>)*
+    private Expr comparison() throws PLCException{
+        Expr left_expr = power_expr();
+
+
+        while (match(IToken.Kind.GT, IToken.Kind.GE, IToken.Kind.LT, IToken.Kind.LE,Kind.EQ)) {
+            IToken operator = previous();
+            Expr right_expr = power_expr();
+            left_expr = new BinaryExpr(operator,left_expr, operator.getKind(), right_expr);
+        }
+
+        return left_expr;
+    }
+
+
+    //<power_expr> ::=    <additive_expr> ** <power_expr> |  <additive_expr>
+    private Expr power_expr() throws PLCException{
+       Expr left_expr = additive_expr();
+
+
+       if (match(IToken.Kind.EXP)) {
+           IToken operator = previous();
+           Expr right_expr = power_expr();
+           left_expr = new BinaryExpr(operator, left_expr, operator.getKind(), right_expr);
+       }
+       return left_expr;
+
+    }
+
+
+
+    //<additive_expr> ::=  <multiplicative_expr> ( ( + | - ) <multiplicative_expr> )*
+    private Expr additive_expr() throws PLCException{
+        Expr left_expr = multiplicative_expr();
 
         while (match(IToken.Kind.MINUS, IToken.Kind.PLUS)) {
-            Token operator = previous();
-            Expr right = factor();
-            expr = new BinaryExpr(expr, operator, right);
+            IToken operator = previous();
+            Expr right_expr = multiplicative_expr();
+            left_expr = new BinaryExpr(operator, left_expr, operator.getKind(), right_expr);
         }
 
-        return expr;
+        return left_expr;
     }
 
-    private Expr multiplicative_expr() {
-        Expr expr = unary();
-        Token left = peek();
+
+    //<multiplicative_expr> ::= <unary_expr> (( * | / | % ) <unary_expr>)*
+    private Expr multiplicative_expr() throws PLCException{
+        Expr left_expr = unary();
+
+
         while (match(IToken.Kind.DIV, IToken.Kind.TIMES, IToken.Kind.MOD)) {
-            Token operator = previous();
-            Expr right = unary();
-            expr = new BinaryExpr(expr,operator, right);
+            IToken operator = previous();
+            Expr right_expr = unary();
+            left_expr = new BinaryExpr(operator, left_expr, operator.getKind(), right_expr);
         }
 
-        return expr;
+        return left_expr;
     }
 
+//<unary_expr> ::= ( ! | - | sin | cos | atan) <unary_expr> |   <primary_expr>
+    private Expr unary() throws PLCException {
 
-    private Expr unary() {
+
         if (match(IToken.Kind.BANG, IToken.Kind.MINUS, IToken.Kind.RES_atan, IToken.Kind.RES_cos, IToken.Kind.RES_sin)) {
-            Token first = peek();
-            Token operator = previous();
-            Expr right = unary();
-            return new UnaryExpr(first, operator.getKind(), right);
+
+            IToken operator = previous();
+            Expr right_expr = unary();
+            return new UnaryExpr(operator, operator.getKind(), right_expr);
         }
 
         return primary();
     }
 
-    private Expr primary() {
-        if (match(FALSE)) return new Expr.Literal(false);
-        if (match(TRUE)) return new Expr.Literal(true);
-        if (match(NIL)) return new Expr.Literal(null);
+    //<primary_expr> ::= STRING_LIT |NUM_LIT |IDENT |( <expr> ) |Z rand
+    private Expr primary() throws PLCException{
 
-        if (match(IToken.Kind.NUM_LIT, IToken.Kind.STRING_LIT)) {
-            return new Expr.Literal(previous().literal);
+        if (match(IToken.Kind.STRING_LIT)) return new StringLitExpr(previous());
+        else if (match(IToken.Kind.NUM_LIT)) return new NumLitExpr(previous());
+        else if (match(IToken.Kind.IDENT)) return new IdentExpr(previous());
+        else if(match(IToken.Kind.RES_Z)) return new ZExpr(previous());
+        else if(match(IToken.Kind.RES_rand)) return new RandomExpr(previous());
+        else if (match(IToken.Kind.LPAREN)) {
+
+           Expr e = expression();
+           if(!match(Kind.RPAREN)){
+               throw new SyntaxException("Conditional fail for parenthesis");
+           }
+           return e;
         }
 
-        if (match(IToken.Kind.LPAREN)) {
-            Expr expr = expression();
-            consume(IToken.Kind.RPAREN, "Expect ')' after expression.");
-            return new Expr.Grouping(expr);
-        }
+        throw new SyntaxException("Error in Primary");
+
     }
 
-
-
-
-    public AST parse() throws PLCException {
-        char[] tokens = scanner.inputChars;
-        Token nextToken = (Token) scanner.next();
-        Token current = nextToken;
-        NumLitExpr nxp = new NumLitExpr(current);
-        return nxp;
-    }
 }
