@@ -11,16 +11,11 @@
 
 package edu.ufl.cise.plcsp23;
 
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
-
 public interface IToken {
 	/** 
 	 * Represents the location in the source code
 	 */
-	public record SourceLocation(int line, int column){}
-
-
+	public record SourceLocation(int line, int column) {}
 	
 	public static enum Kind {
 		IDENT,
@@ -81,7 +76,10 @@ public interface IToken {
 		DIV, // /
 		MOD, // %
 		EOF,
-		ERROR
+		ERROR,
+		RES_red,
+		RES_grn,
+		RES_blu
 	}
 
 
@@ -105,5 +103,8 @@ public interface IToken {
 	 * @return
 	 */
 	public String getTokenString();
+
+
+
 
 }
