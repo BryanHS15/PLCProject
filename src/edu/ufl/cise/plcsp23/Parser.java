@@ -92,7 +92,7 @@ public class Parser implements IParser  {
         if(tokenList.size() == 1){
             throw new SyntaxException("The Array is empty");
         }
-        return expression();
+        return program();
     }
 
     private Program program() throws PLCException {
@@ -161,6 +161,15 @@ public class Parser implements IParser  {
 
     private List<Statement> statementList() throws PLCException{
         IToken first = peek();
+
+        while(match(Kind.RES_write, Kind.RES_while, Kind.IDENT)){
+            currentIndex--;
+            Statement statement = statement();
+            consume(Kind.DOT);
+            statements.add(statement);
+        }
+        return statements;
+        /*
         if(first.getKind() == Kind.RCURLY){
             return new ArrayList<Statement>();
         }
@@ -176,6 +185,7 @@ public class Parser implements IParser  {
             return statements;
         }
 
+        */
     }
 
     private Statement statement() throws PLCException{
@@ -281,11 +291,11 @@ public class Parser implements IParser  {
                 return new Dimension(first, temp1, temp2);
             }
             else{
-                throw new SyntaxException("No parenthesis");
+                throw new SyntaxException("No Bracket");
             }
         }
         else{
-            throw new SyntaxException("No parenthesis");
+            throw new SyntaxException("No Bracket");
         }
 
     }
@@ -332,11 +342,11 @@ public class Parser implements IParser  {
                 return new PixelSelector(first, temp1, temp2);
             }
             else{
-                throw new SyntaxException("No parenthesis");
+                throw new SyntaxException("No Bracket");
             }
         }
         else{
-            throw new SyntaxException("No parenthesis");
+            throw new SyntaxException("No Bracket");
         }
 
     }
