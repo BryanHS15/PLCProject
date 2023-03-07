@@ -5,9 +5,13 @@ import edu.ufl.cise.plcsp23.IToken.Kind;
 import edu.ufl.cise.plcsp23.ast.BinaryExpr;
 import edu.ufl.cise.plcsp23.ast.UnaryExpr;
 import edu.ufl.cise.plcsp23.ast.StringLitExpr;
+import org.hamcrest.generator.FactoryMethod;
 
 import javax.management.relation.InvalidRoleInfoException;
+import javax.naming.Name;
+import javax.swing.plaf.nimbus.State;
 import javax.swing.plaf.synth.SynthButtonUI;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +43,9 @@ public class Parser implements IParser  {
 
     }
 
+    private List<Declaration> dec = new ArrayList<Declaration>();
+    private List<NameDef> para = new ArrayList<NameDef>();
+    private List<Statement> statements = new ArrayList<Statement>();
 
     private boolean isAtEnd() {
 
@@ -56,6 +63,13 @@ public class Parser implements IParser  {
     private Token advance() {
         if (!isAtEnd()) currentIndex++;
         return previous();
+    }
+
+    private IToken consume(Kind type) throws PLCException{
+        if (check(type))
+            return advance();
+
+        throw new PLCException("Inconsumable Token");
     }
 
     private boolean check(IToken.Kind type) {
@@ -78,8 +92,300 @@ public class Parser implements IParser  {
         if(tokenList.size() == 1){
             throw new SyntaxException("The Array is empty");
         }
-        return expression();
+        return program();
     }
+
+    private Program program() throws PLCException {
+       IToken first = peek();
+       Type t = type();
+
+        Ident i =  ident();
+       if(match(Kind.LPAREN)){
+            para = parameterList();
+           if(match(Kind.RPAREN)){
+               Block block = block();
+               return new Program(first,t, i, para, block);
+           }
+           else{
+               throw new SyntaxException("No parenthesis");
+           }
+       }
+       else{
+           throw new SyntaxException("Error");
+       }
+    }
+
+    private Type type() throws PLCException {
+        IToken first = peek();
+        Type t;
+        try{
+            t = Type.getType(first);
+            advance();
+        }
+        catch (RuntimeException e){
+            throw new SyntaxException("Incorrect type");
+        }
+
+        return t;
+    }
+
+    private Ident ident() throws SyntaxException{
+       Token temp = advance();
+
+       if(temp.kind != Kind.IDENT){
+           throw new SyntaxException("Does not have type");
+       }
+       else{
+           return new Ident(temp);
+       }
+
+    }
+
+    private Block block() throws PLCException{
+       IToken first = peek();
+
+       if(match(Kind.LCURLY)){
+           dec = declarationList();
+           statements = statementList();
+           if(match(Kind.RCURLY)){
+               return new Block(first, dec, statements);
+           }
+           else{
+               throw new SyntaxException("No curly");
+           }
+       }
+       else{
+           throw new SyntaxException("No curly");
+       }
+    }
+
+    private List<Statement> statementList() throws PLCException{
+        IToken first = peek();
+
+        while(match(Kind.RES_write, Kind.RES_while, Kind.IDENT)){
+            currentIndex--;
+            Statement statement = statement();
+            consume(Kind.DOT);
+            statements.add(statement);
+        }
+        return statements;
+        /*
+        if(first.getKind() == Kind.RCURLY){
+            return new ArrayList<Statement>();
+        }
+        else{
+            Statement statement = statement();
+            statements.add(statement);
+            while(match(Kind.DOT)){
+                statement = statement();
+                if(statement != null){
+                    statements.add(statement);
+                }
+            }
+            return statements;
+        }
+
+        */
+    }
+
+    private Statement statement() throws PLCException{
+        IToken first = peek();
+
+
+        if(match(Kind.RES_write)){
+            Expr expr = expression();
+            return new WriteStatement(first, expr);
+        }
+        else if (match(Kind.RES_while)){
+            Expr expr = expression();
+            Block b = block();
+            return new WhileStatement(first, expr, b);
+        }
+        else{
+            LValue val = lValue();
+            consume(Kind.ASSIGN);
+            Expr expr = expression();
+            return new AssignmentStatement(first, val , expr);
+        }
+    }
+
+    private List<NameDef> parameterList() throws PLCException{
+        IToken first = peek();
+        if(first.getKind() == Kind.RPAREN){
+            return new ArrayList<NameDef>();
+        }
+        else{
+            NameDef nameDef = nameDef();
+            para.add(nameDef);
+            while(match(Kind.COMMA)){
+                nameDef = nameDef();
+                para.add(nameDef);
+            }
+            return  para;
+        }
+
+    }
+
+    private List<Declaration> declarationList() throws PLCException{
+        IToken first = peek();
+        if(first.getKind() == Kind.RCURLY){
+            return new ArrayList<Declaration>();
+        }
+        else{
+           Declaration declaration = declaration();
+            dec.add(declaration);
+            while(match(Kind.DOT)){
+                declaration = declaration();
+                if(declaration != null){
+                    dec.add(declaration);
+                }
+            }
+            return dec;
+        }
+
+    }
+    private Declaration declaration() throws PLCException{
+        IToken first = peek();
+        NameDef nameDef = nameDef();
+        advance();
+        if(match(Kind.ASSIGN)){
+            if(peek() != null)
+                return new Declaration(first, nameDef, expression());
+            else{
+                return new Declaration(first, nameDef, null);
+            }
+        }
+        else{
+            throw new SyntaxException("No Equal sign");
+        }
+    }
+
+    private NameDef nameDef() throws PLCException{
+        IToken first = peek();
+        Type t = type();
+
+        if(peek().getKind() == Kind.IDENT){
+            Ident ident = new Ident(peek());
+            return new NameDef(first, t, null, ident);
+        }
+        else{
+            Dimension d = dimension();
+            Ident ident = new Ident(peek());
+            return new NameDef(first, t, d, ident);
+
+        }
+    }
+
+
+    private Dimension dimension() throws PLCException {
+        IToken first = peek();
+        Expr temp1 = null;
+        Expr temp2 = null;
+
+        if(match(Kind.LSQUARE)){
+            temp1 = expression();
+            consume(Kind.COMMA);
+            temp2 = expression();
+            if(match(Kind.RSQUARE)){
+                advance();
+                return new Dimension(first, temp1, temp2);
+            }
+            else{
+                throw new SyntaxException("No Bracket");
+            }
+        }
+        else{
+            throw new SyntaxException("No Bracket");
+        }
+
+    }
+
+    private LValue lValue() throws PLCException{
+        IToken first = peek();
+
+
+        if(first.getKind() == Kind.IDENT){
+            Ident ident = new Ident(first);
+
+            if(match(Kind.LSQUARE)){
+                PixelSelector p = pixelSelector();
+                if(match(Kind.COLON)){
+                    IToken current = peek();
+                    ColorChannel c = ColorChannel.getColor(current);
+                    return new LValue(first, ident,p, c );
+                }
+                else{
+                    return new LValue(first, ident, p, null);
+                }
+            }
+            else{
+               return new LValue(first, ident, null, null);
+            }
+        }
+
+        else{
+            throw new SyntaxException("No Ident");
+        }
+    }
+
+    private PixelSelector pixelSelector() throws PLCException{
+        IToken first = peek();
+        Expr temp1 = null;
+        Expr temp2 = null;
+
+        if(match(Kind.LSQUARE)){
+            temp1 = expression();
+            consume(Kind.COMMA);
+            temp2 = expression();
+            if(match(Kind.RSQUARE)){
+                advance();
+                return new PixelSelector(first, temp1, temp2);
+            }
+            else{
+                throw new SyntaxException("No Bracket");
+            }
+        }
+        else{
+            throw new SyntaxException("No Bracket");
+        }
+
+    }
+
+   private ExpandedPixelExpr expandedPixelExpr() throws PLCException{
+       IToken first = previous();
+       Expr temp1 = null;
+       Expr temp2 = null;
+       Expr temp3 = null;
+
+       if(match(Kind.LSQUARE)){
+           temp1 = expression();
+           consume(Kind.COMMA);
+           temp2 = expression();
+           consume(Kind.COMMA);
+           temp3 = expression();
+           if(match(Kind.RSQUARE)){
+               advance();
+               return new ExpandedPixelExpr(first, temp1, temp2,temp3);
+           }
+           else{
+               throw new SyntaxException("No Bracket");
+           }
+       }
+       else{
+           throw new SyntaxException("No Bracket");
+       }
+
+
+   }
+
+   private PixelFuncExpr pixelFuncExpr() throws PLCException{
+        IToken first = peek();
+        PixelSelector pSelector = pixelSelector();
+        return new PixelFuncExpr(first,first.getKind(), pSelector);
+
+
+
+   }
 
     private Expr expression() throws PLCException{
 
@@ -203,9 +509,30 @@ public class Parser implements IParser  {
         return left_expr;
     }
 
+    private UnaryExprPostfix unaryExprPostfix() throws PLCException{
+        IToken first = peek();
+        Expr primary = primary();
+
+        if(match(Kind.LSQUARE)){
+
+            PixelSelector p = pixelSelector();
+            if(match(Kind.COLON)){
+                IToken current = peek();
+                ColorChannel c = ColorChannel.getColor(current);
+                return new UnaryExprPostfix(first,primary, p, c);
+            }
+            else{
+                return new UnaryExprPostfix(first, primary, p, null);
+            }
+        }
+        else{
+            return new UnaryExprPostfix(first, primary, null,null);
+        }
+    }
+
 //<unary_expr> ::= ( ! | - | sin | cos | atan) <unary_expr> |   <primary_expr>
     private Expr unary() throws PLCException {
-
+            IToken first = peek();
 
         if (match(IToken.Kind.BANG, IToken.Kind.MINUS, IToken.Kind.RES_atan, IToken.Kind.RES_cos, IToken.Kind.RES_sin)) {
 
@@ -214,7 +541,7 @@ public class Parser implements IParser  {
             return new UnaryExpr(operator, operator.getKind(), right_expr);
         }
 
-        return primary();
+        return unaryExprPostfix();
     }
 
     //<primary_expr> ::= STRING_LIT |NUM_LIT |IDENT |( <expr> ) |Z rand
@@ -225,6 +552,9 @@ public class Parser implements IParser  {
         else if (match(IToken.Kind.IDENT)) return new IdentExpr(previous());
         else if(match(IToken.Kind.RES_Z)) return new ZExpr(previous());
         else if(match(IToken.Kind.RES_rand)) return new RandomExpr(previous());
+        else if(match(Kind.RES_r, Kind.RES_a, Kind. RES_x, Kind.RES_y)) return new PredeclaredVarExpr(previous());
+        else if(tokenList.get(currentIndex).getKind() == Kind.LSQUARE ) return expandedPixelExpr();
+        else if(match(Kind.RES_x_cart, Kind.RES_y_cart, Kind.RES_a_polar, Kind.RES_r_polar)) return pixelFuncExpr();
         else if (match(IToken.Kind.LPAREN)) {
 
            Expr e = expression();
@@ -235,7 +565,6 @@ public class Parser implements IParser  {
         }
 
         throw new SyntaxException("Error in Primary");
-
     }
 
 }
