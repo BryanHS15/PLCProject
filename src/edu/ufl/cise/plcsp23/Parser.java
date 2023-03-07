@@ -8,6 +8,7 @@ import edu.ufl.cise.plcsp23.ast.StringLitExpr;
 
 import javax.management.relation.InvalidRoleInfoException;
 import javax.swing.plaf.synth.SynthButtonUI;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +40,9 @@ public class Parser implements IParser  {
 
     }
 
+    private List<Declaration> dec = new ArrayList<Declaration>();
+    private List<NameDef> para = new ArrayList<NameDef>();
+    private List<Statement> statements = new ArrayList<Statement>();
 
     private boolean isAtEnd() {
 
@@ -56,6 +60,13 @@ public class Parser implements IParser  {
     private Token advance() {
         if (!isAtEnd()) currentIndex++;
         return previous();
+    }
+
+    private IToken consume(Kind type) throws PLCException{
+        if (check(type))
+            return advance();
+
+        throw new PLCException("Inconsumable Token");
     }
 
     private boolean check(IToken.Kind type) {
@@ -80,6 +91,115 @@ public class Parser implements IParser  {
         }
         return expression();
     }
+
+    private Program program() throws PLCException {
+       IToken first = peek();
+       Type t = type();
+
+        Ident i =  new Ident(consume(first.getKind()));
+       if(match(Kind.LPAREN)){
+           List<NameDef> para = parameterList();
+           if(match(Kind.RPAREN)){
+               Token rParen = previous();
+               Block block = block();
+               return new Program(first,t, i, para, block);
+           }
+           else{
+               throw new SyntaxException("No parenthesis");
+           }
+       }
+       else{
+           throw new SyntaxException("Error");
+       }
+    }
+
+    private Type type() throws PLCException {
+        IToken first = peek();
+        Type t;
+        try{
+            t = Type.getType(first);
+            advance();
+        }
+        catch (RuntimeException e){
+            throw new SyntaxException("Incorrect type");
+        }
+
+        return t;
+    }
+
+    private Ident ident() throws SyntaxException{
+       Token temp = advance();
+
+       if(temp.kind != Kind.IDENT){
+           throw new SyntaxException("Does not have type");
+       }
+       else{
+           return new Ident(temp);
+       }
+
+    }
+
+    private Block block() throws SyntaxException{
+       IToken first = peek();
+
+       if(match(Kind.LCURLY)){
+           List <Declaration> dec = new ArrayList<Declaration>();
+           List <Statement> statement = new ArrayList<Statement>();
+           if(match(Kind.RCURLY)){
+               Token rCurly = previous();
+               return new Block(first, dec, statement);
+           }
+           else{
+               throw new SyntaxException("No parenthesis");
+           }
+       }
+       else{
+           throw new SyntaxException("No parenthesis");
+       }
+    }
+    private List<NameDef> parameterList(){
+       IToken first = peek();
+
+       if(match(Kind.RPAREN)){
+        List <NameDef> para = new ArrayList<NameDef>();
+
+       }
+         return null;
+
+    }
+
+    private NameDef nameDef(){
+        IToken first = peek();
+
+
+        return null;
+
+
+    }
+
+
+    private Dimension dimension() throws PLCException {
+        IToken first = peek();
+        Expr temp1 = null;
+        Expr temp2 = null;
+
+        if(match(Kind.LSQUARE)){
+            temp1 = expression();
+            consume(Kind.COMMA);
+            temp2 = expression();
+            if(match(Kind.RSQUARE)){
+                return new Dimension(first, temp1, temp2);
+            }
+            else{
+                throw new SyntaxException("No parenthesis");
+            }
+        }
+        else{
+            throw new SyntaxException("No parenthesis");
+        }
+
+    }
+
 
     private Expr expression() throws PLCException{
 
