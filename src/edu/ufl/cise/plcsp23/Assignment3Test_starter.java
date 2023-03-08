@@ -83,9 +83,9 @@ class Assignment3Test_starter {
 	/**
 	 * Checks that the given AST e has type StringLitExpr with the given String
 	 * value. Returns the given AST cast to StringLitExpr.
-	 * 
+	 *
 	 * @param e
-	 * @param value
+	 * @param name
 	 * @return
 	 */
 	StringLitExpr checkStringLit(AST e, String value) {
@@ -98,7 +98,7 @@ class Assignment3Test_starter {
 	/**
 	 * Checks that the given AST e has type UnaryExpr with the given operator.
 	 * Returns the given AST cast to UnaryExpr.
-	 * 
+	 *
 	 * @param e
 	 * @param op Kind of expected operator
 	 * @return
@@ -112,7 +112,7 @@ class Assignment3Test_starter {
 	/**
 	 * Checks that the given AST e has type ConditionalExpr. Returns the given AST
 	 * cast to ConditionalExpr.
-	 * 
+	 *
 	 * @param e
 	 * @return
 	 */
@@ -126,7 +126,7 @@ class Assignment3Test_starter {
 	 * Returns the given AST cast to BinaryExpr.
 	 *
 	 * @param e
-	 * @param expectedOp Kind of expected operator
+	 * @param op Kind of expected operator
 	 * @return
 	 */
 	BinaryExpr checkBinary(AST e, Kind expectedOp) {
@@ -139,7 +139,7 @@ class Assignment3Test_starter {
 	/**
 	 * Checks that the given AST e has type IdentExpr with the given name. Returns
 	 * the given AST cast to IdentExpr.
-	 * 
+	 *
 	 * @param e
 	 * @param name
 	 * @return
@@ -154,7 +154,7 @@ class Assignment3Test_starter {
 	/**
 	 * Checks that the given AST e has type Ident with the given name. Returns the
 	 * given AST cast to IdentExpr.
-	 * 
+	 *
 	 * @param e
 	 * @param name
 	 * @return
@@ -936,4 +936,341 @@ class Assignment3Test_starter {
 		});
 	}
 
+	@Test
+	void test15() throws PLCException {
+		String input = """
+				string s(){
+				xx = 22
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test16() throws PLCException {
+		String input = """
+				int s(){
+				xx = 22;
+				}
+				""";
+		assertThrows(LexicalException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test17() throws PLCException { // NUM_LIT for program name
+		String input = """
+				int 1(){
+				xx = 22.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test18() throws PLCException { // No parentheses
+		String input = """
+				int p{
+				xx = 22.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test19() throws PLCException { // No comma separator for param list
+		String input = """
+				int p(int i int j){
+				xx = 22.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test20() throws PLCException { // No closing parenthesis
+		String input = """
+				int p(int i, int j{
+				xx = 22.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test21() throws PLCException { // NUM_LIT instead of IDENT for NameDef
+		String input = """
+				int p(int 1, int j){
+				xx = 22.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test22() throws PLCException { // No opening bracket
+		String input = """
+				int p(int i, int j) 
+				xx = 22.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test23() throws PLCException { // No closing bracket
+		String input = """
+				int p(int i, int j){
+				xx = 22.
+				
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test24() throws PLCException { // No '=' after Lvalue in statement 
+		String input = """
+				int p(int i, int j){ 
+				xx[1,2] 22.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test25() throws PLCException { // Invalid color channel
+		String input = """
+				int p(int i, int j){ 
+					xx[1, 2]:yel.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test26() throws PLCException { // Invalid type
+		String input = """
+				int p(int i, int j){ 
+					wrong xx = 22.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test27() throws PLCException { // No IDENT after type + dimension
+		String input = """
+				int p(int i, int j){ 
+					image[1,2] = 22.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test28() throws PLCException { // No IDENT after type
+		String input = """
+				int p(int i, int j){ 
+					image = 22.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test29() throws PLCException { // No opening bracket in pixel selector
+		String input = """
+				int p(int i, int j){ 
+					xx1,2] = 1.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test30() throws PLCException { // No comma in pixel selector
+		String input = """
+				int p(int i, int j){ 
+					xx[1 2] = 1.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test31() throws PLCException { // No closing bracket in pixel selector
+		String input = """
+				int p(int i, int j){ 
+					xx[1, 2 = 1.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test32() throws PLCException { // No opening bracket in expanded pixel
+		String input = """
+				int p(int i, int j){ 
+					pixel p = 1, 2, 3].
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test33() throws PLCException { // No first comma in expanded pixel
+		String input = """
+				int p(int i, int j){ 
+					pixel p = [1 2, 3].
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test34() throws PLCException { // No second comma in expanded pixel
+		String input = """
+				int p(int i, int j){ 
+					pixel p = [1, 2 3].
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test35() throws PLCException { // No closing bracket in expanded pixel
+		String input = """
+				int p(int i, int j){ 
+					pixel p = [1, 2, 3.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test36() throws PLCException { // Invalid pixel function
+		String input = """
+				int p(int i, int j){ 
+					j[x,y] = k[x_cart, y_cart [a,r]].
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test37() throws PLCException { // No opening bracket in dimension
+		String input = """
+				int p(int i, int j){ 
+					image1, 2] xx.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test38() throws PLCException { // No comma in dimension
+		String input = """
+				int p(int i, int j){ 
+					image[1 2] xx.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test39() throws PLCException { // No closing bracket in dimension
+		String input = """
+				int p(int i, int j){ 
+					image[1, 2 xx.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
+
+	@Test
+	void test40() throws PLCException { // No closing bracket in dimension
+		String input = """
+				int p(int i, int j){ 
+					image[1, 2 xx.
+				}
+				""";
+		assertThrows(SyntaxException.class, () -> {
+			@SuppressWarnings("unused")
+			AST ast = getAST(input);
+		});
+	}
 }
